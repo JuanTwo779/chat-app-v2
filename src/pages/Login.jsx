@@ -7,7 +7,7 @@ const Login = () => {
             <span className='logo'>Chat App</span>
             <span className='title'>Login</span>
             <form>  
-                <input type="email" placeholder='juan@email.com'/>    
+                <input type="email" placeholder='email'/>    
                 <input type="password" placeholder='password'/>    
                 <button>Sign In</button>
             </form>
