@@ -1,37 +1,76 @@
-import React from "react";
+import React, { useState } from "react";
 import Add from "../img/addAvatar.jpg";
-import { getAuth, createUserWithEmailAndPassword,  } from "firebase/auth";
-
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import { doc, setDoc } from "firebase/firestore"; 
+import { auth, db, storage } from '../Firebase';
+import { useNavigate } from "react-router-dom";
 
 const Register = () => {
 
-  const handleSubmit = (e) => {
+  const [err, setErr] = useState(false);
+  const navigate = useNavigate()
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
+
+    //values from form
     const displayName = e.target[0].value;
     const email = e.target[1].value;
     const password = e.target[2].value;
     const file = e.target[3].files[0];
 
-    const auth = getAuth();
-    createUserWithEmailAndPassword(auth, email, password)
-      .then((userCredential) => {
-        // Signed in 
-        const user = userCredential.user;
-        // ...
-        // console.log(user);
-      })
-      .catch((error) => {
-        const errorCode = error.code;
-        const errorMessage = error.message;
-        // ..
-    });
+    try {
+      //Auth: {Creates user} for authentication
+      const res = await createUserWithEmailAndPassword(auth, email, password);
+
+      //Cloud: store the file
+      const storageRef = ref(storage, displayName);
+
+      const uploadTask = uploadBytesResumable(storageRef, file);
+      uploadTask.on(
+        (error) => {
+          // Handle unsuccessful uploads
+          setErr(true);
+        }, 
+        () => {
+          // Handle successful uploads on complete
+          getDownloadURL(uploadTask.snapshot.ref).then( async(downloadURL) => {
+
+            //Update profile
+            await updateProfile(res.user, {
+              displayName,
+              photoURL: downloadURL,
+            });
+
+            //create user on firestore
+            await setDoc(doc(db, "users", res.user.uid), {
+              uid: res.user.uid,
+              displayName,
+              email,
+              photoURL: downloadURL,
+            });
+
+            await setDoc(doc(db, "userChats", res.user.uid), {});
+
+            navigate("/");
+
+          });
+        }
+      );
+
+
+    } catch (err) {
+      setErr(true);
+    }
     
   };
+  
 
   return (
     <div className="formContainer">
       <div className="formWrapper">
-        <span className="logo">Lama Chat</span>
+        <span className="logo">Chat App</span>
         <span className="title">Register</span>
         <form onSubmit={handleSubmit}>
           <input type="text" placeholder="display name" />
@@ -43,6 +82,7 @@ const Register = () => {
             <span>Add an avatar</span>
           </label>
           <button>Sign up</button>
+          {err && <span>Something Went Wrong</span>}
         </form>
         <p>
           You do have an account? Login
